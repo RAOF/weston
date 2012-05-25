@@ -212,6 +212,15 @@ AC_ARG_ENABLE(tablet-shell, [  --enable-tablet-shell],,
 AM_CONDITIONAL(ENABLE_TABLET_SHELL,
 	       test x$enable_tablet_shell = xyes)
 
+AC_ARG_ENABLE([system-compositor], [  --enable-system-compositor],,
+	      [enable_system_compositor=yes])
+AM_CONDITIONAL([ENABLE_SYSTEM_COMPOSITOR],
+	       [ test x$enable_system_compositor = xyes ])
+
+if test "x$GCC" = "xyes"; then
+	GCC_CFLAGS="-Wall -Wextra -Wstrict-prototypes -Wmissing-prototypes \
+		-Wno-unused-parameter -Wno-missing-field-initializers \
+		-g -fvisibility=hidden"
 
 AC_ARG_ENABLE(wcap-tools, [  --disable-wcap-tools],, enable_wcap_tools=yes)
 AM_CONDITIONAL(BUILD_WCAP_TOOLS, test x$enable_wcap_tools = xyes)

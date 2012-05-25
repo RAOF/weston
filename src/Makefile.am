@@ -79,7 +79,8 @@ module_LTLIBRARIES =				\
 	$(x11_backend)				\
 	$(drm_backend)				\
 	$(wayland_backend)			\
-	$(openwfd_backend)
+	$(openwfd_backend)			\
+	$(system_compositor)
 
 # Do not install, since the binary produced via autotools is unusable.
 # The real backend is built by the Android build system.
@@ -174,11 +175,24 @@ tablet_shell_la_SOURCES =			\
 	tablet-shell-server-protocol.h
 endif
 
+if ENABLE_SYSTEM_COMPOSITOR
+system_compositor = system-compositor.la
+system_compositor_la_LDFLAGS = -module -avoid-version -shared
+system_compositor_la_LIBADD = $(COMPOSITOR_LIBS)\
+	../shared/libshared.la
+system_compositor_la_CFLAGS = $(GCC_CFLAGS) $(COMPOSITOR_CFLAGS)
+system_compositor_la_SOURCES =			\
+	system-compositor-protocol.c		\
+	system-compositor-server-protocol.h
+endif
+
 BUILT_SOURCES =					\
 	screenshooter-server-protocol.h		\
 	screenshooter-protocol.c		\
 	text-cursor-position-server-protocol.h	\
 	text-cursor-position-protocol.c		\
+	system-compositor-protocol.c		\
+	system-compositor-server-protocol.h	\
 	tablet-shell-protocol.c			\
 	tablet-shell-server-protocol.h		\
 	desktop-shell-protocol.c		\
