@@ -670,7 +670,7 @@ wfd_compositor_create(struct wl_display *display,
 }
 
 WL_EXPORT struct weston_compositor *
-backend_init(struct wl_display *display, int argc, char *argv[])
+backend_init(struct wl_display *display, int *argc, char *argv[])
 {
 	int connector = 0, tty = 0;
 	const char *seat;
@@ -681,7 +681,8 @@ backend_init(struct wl_display *display, int argc, char *argv[])
 		{ WESTON_OPTION_INTEGER, "tty", 0, &tty },
 	};
 
-	parse_options(&wfd_options, ARRAY_LENGTH(wfd_options), argc, argv);
+	*argc = parse_options(&wfd_options, ARRAY_LENGTH(wfd_options),
+			      *argc, argv);
 
 	return wfd_compositor_create(display, connector, seat, tty);
 }

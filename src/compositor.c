@@ -2992,7 +2992,7 @@ log_egl_gl_info(EGLDisplay egldpy)
 WL_EXPORT int
 weston_compositor_init(struct weston_compositor *ec,
 		       struct wl_display *display,
-		       int argc,
+		       int *argc,
 		       char *argv[],
 		       const char *config_file)
 {
@@ -3261,10 +3261,11 @@ int main(int argc, char *argv[])
 	struct wl_event_loop *loop;
 	struct sigaction segv_action;
 	void *shell_module, *backend_module, *xserver_module;
-	int (*module_init)(struct weston_compositor *ec);
+	int (*module_init)(struct weston_compositor *ec,
+			   int *argc, char *argv[]);
 	struct weston_compositor
 		*(*backend_init)(struct wl_display *display,
-				 int argc, char *argv[], const char *config_file);
+				 int *argc, char *argv[], const char *config_file);
 	int i;
 	char *backend = NULL;
 	char *shell = NULL;
@@ -3345,18 +3346,18 @@ int main(int argc, char *argv[])
 	if (!backend_init)
 		exit(EXIT_FAILURE);
 
-	ec = backend_init(display, argc, argv, config_file);
+	ec = backend_init(display, &argc, argv, config_file);
 	if (ec == NULL) {
 		weston_log("failed to create compositor\n");
 		exit(EXIT_FAILURE);
 	}
 
-	for (i = 1; argv[i]; i++)
-		weston_log("unhandled option: %s\n", argv[i]);
-	if (argv[1])
-		exit(EXIT_FAILURE);
-
 	free(config_file);
+
+	if (weston_compositor_xkb_init(ec, &xkb_names) == -1) {
+		fprintf(stderr, "failed to initialise keyboard support\n");
+		exit(EXIT_FAILURE);
+	}
 
 	ec->option_idle_time = idle_time;
 	ec->idle_time = idle_time;
@@ -3366,22 +3367,26 @@ int main(int argc, char *argv[])
 		module_init = load_module("xwayland.so",
 					  "weston_xserver_init",
 					  &xserver_module);
-	if (module_init && module_init(ec) < 0)
+	if (module_init && module_init(ec, &argc, argv) < 0)
 		exit(EXIT_FAILURE);
 
 	if (!shell)
 		shell = "desktop-shell.so";
 	module_init = load_module(shell, "shell_init", &shell_module);
-	if (!module_init || module_init(ec) < 0)
+	if (!module_init || module_init(ec, &argc, argv) < 0)
 		exit(EXIT_FAILURE);
-
 
 	module_init = NULL;
 	if (module)
 		module_init = load_module(module, "module_init", NULL);
-	if (module_init && module_init(ec) < 0)
+	if (module_init && module_init(ec, &argc, argv) < 0)
 		exit(EXIT_FAILURE);
 
+	for (i = 1; argv[i]; i++)
+		weston_log("unhandled option: %s\n", argv[i]);
+	if (argv[1])
+		exit(EXIT_FAILURE);
+	
 	if (wl_display_add_socket(display, socket_name)) {
 		weston_log("failed to add socket: %m\n");
 		exit(EXIT_FAILURE);

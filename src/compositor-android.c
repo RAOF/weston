@@ -407,7 +407,7 @@ android_compositor_destroy(struct weston_compositor *base)
 }
 
 static struct weston_compositor *
-android_compositor_create(struct wl_display *display, int argc, char *argv[],
+android_compositor_create(struct wl_display *display, int *argc, char *argv[],
 			  const char *config_file)
 {
 	struct android_compositor *compositor;
@@ -447,7 +447,7 @@ android_compositor_create(struct wl_display *display, int argc, char *argv[],
 }
 
 WL_EXPORT struct weston_compositor *
-backend_init(struct wl_display *display, int argc, char *argv[],
+backend_init(struct wl_display *display, int *argc, char *argv[],
 	     const char *config_file)
 {
 	return android_compositor_create(display, argc, argv, config_file);

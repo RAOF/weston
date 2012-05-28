@@ -833,7 +833,7 @@ wayland_destroy(struct weston_compositor *ec)
 static struct weston_compositor *
 wayland_compositor_create(struct wl_display *display,
 			  int width, int height, const char *display_name,
-			  int argc, char *argv[], const char *config_file)
+			  int *argc, char *argv[], const char *config_file)
 {
 	struct wayland_compositor *c;
 	struct wl_event_loop *loop;
@@ -891,8 +891,8 @@ wayland_compositor_create(struct wl_display *display,
 }
 
 WL_EXPORT struct weston_compositor *
-backend_init(struct wl_display *display, int argc, char *argv[],
-	     const char *config_file)
+backend_init(struct wl_display *display, int *argc, char *argv[],
+	       const char *config_file)
 {
 	int width = 1024, height = 640;
 	char *display_name = NULL;
@@ -903,8 +903,8 @@ backend_init(struct wl_display *display, int argc, char *argv[],
 		{ WESTON_OPTION_STRING, "display", 0, &display_name },
 	};
 
-	parse_options(wayland_options,
-		      ARRAY_LENGTH(wayland_options), argc, argv);
+	*argc = parse_options(wayland_options, ARRAY_LENGTH(wayland_options),
+			      *argc, argv);
 
 	return wayland_compositor_create(display, width, height, display_name,
 					 argc, argv, config_file);

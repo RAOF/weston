@@ -1048,7 +1048,7 @@ static struct weston_compositor *
 x11_compositor_create(struct wl_display *display,
 		      int width, int height, int count, int fullscreen,
 		      int no_input,
-		      int argc, char *argv[], const char *config_file)
+		      int *argc, char *argv[], const char *config_file)
 {
 	struct x11_compositor *c;
 	xcb_screen_iterator_t s;
@@ -1112,7 +1112,7 @@ x11_compositor_create(struct wl_display *display,
 }
 
 WL_EXPORT struct weston_compositor *
-backend_init(struct wl_display *display, int argc, char *argv[],
+backend_init(struct wl_display *display, int *argc, char *argv[],
 	     const char *config_file)
 {
 	int width = 1024, height = 640, fullscreen = 0, count = 1;
@@ -1126,7 +1126,8 @@ backend_init(struct wl_display *display, int argc, char *argv[],
 		{ WESTON_OPTION_BOOLEAN, "no-input", 0, &no_input },
 	};
 
-	parse_options(x11_options, ARRAY_LENGTH(x11_options), argc, argv);
+	*argc = parse_options(x11_options, ARRAY_LENGTH(x11_options),
+			      *argc, argv);
 
 	return x11_compositor_create(display,
 				     width, height, count, fullscreen,

@@ -3266,10 +3266,10 @@ shell_add_bindings(struct weston_compositor *ec, struct desktop_shell *shell)
 }
 
 int
-shell_init(struct weston_compositor *ec);
+shell_init(struct weston_compositor *ec, int *argc, char *argv[]);
 
 WL_EXPORT int
-shell_init(struct weston_compositor *ec)
+shell_init(struct weston_compositor *ec, int *argc, char *argv[])
 {
 	struct desktop_shell *shell;
 	struct workspace **pws;

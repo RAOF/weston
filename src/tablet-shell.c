@@ -532,10 +532,10 @@ tablet_shell_destroy(struct wl_listener *listener, void *data)
 }
 
 void
-shell_init(struct weston_compositor *compositor);
+shell_init(struct weston_compositor *compositor, int *argc, char *argv[]);
 
 WL_EXPORT void
-shell_init(struct weston_compositor *compositor)
+shell_init(struct weston_compositor *compositor, int *argc, char *argv[])
 {
 	struct tablet_shell *shell;
 	struct wl_event_loop *loop;
