@@ -20,33 +20,103 @@
  * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-struct system_compositor {
+struct client_output_mapping {
+	struct weston_surface *surface;
+	struct weston_output *output;
+	struct wl_list link;
+};
 
+struct system_client {
+	wl_client *client;
+	struct wl_list surface_mapping;
+	struct wl_list link;
+};
+
+struct system_compositor {
+	struct weston_compositor *compositor;
+	
+	struct weston_layer authentication_overlay;
+	struct weston_layer display_layer;	
 };
 
 struct display_manager {
+	struct system_compositor *sc;
 
+	struct wl_client *dm_client;
+	struct wl_list system_clients;
 };
-
-struct 
 
 static void add_client(struct wl_client *client,
 		       struct wl_resource *resource,
 		       uint32_t id, int32_t fd)
 {
-	struct system_compositor *compositor = resource->data;
-	struct wl_client *new_client;
+	struct display_manager *dm = resource->data;
+	struct system_client *system_client;
+	struct wl_resource *new_resource;
 	
-	new_client = wl_client_create(wl_client_get_display(client), fd);
+	system_client = calloc(1, sizeof *new_sc);
+	system_client->client = wl_client_create(wl_client_get_display(client),
+						 fd);
+	
+	new_resource = wl_client_add_object(client, &system_client_interface,
+					    &system_client_implementation,
+					    id, system_client);
+
+	wl_list_insert(&dm->system_clients.prev, &system_client->link);
+}
+
+/* This might want to end up in libwayland */
+struct lookup_resource_closure {
+	struct wl_interface *target,
+	struct wl_resource *hit
+};
+
+static void lookup_resource_by_interface_proc (void *element, void *data)
+{
+	struct wl_resource *resource = (struct wl_resource *)element;
+	struct lookup_resource_closure *closure = 
+		(struct lookup_resource_closure *)data;
+	
+	if (resource->object->interface == closure->target)
+		closure->hit = resource;
+}
+
+static struct wl_resource *
+lookup_resource_by_interface(struct wl_client *client,
+			     struct wl_interface *target)
+{
+	struct lookup_resource_closure closure;
+	closure.target = target;
+	closure.hit = NULL;
+	
+	wl_map_for_each(client->objects, lookup_resource_by_interface_proc,
+			&closure);
+	
+	return closure.hit;	
 }
 
 static void switch_to_client(struct wl_client *client,
 			     struct wl_resource *resource,
 			     struct wl_resource *id)
 {
+	struct system_compositor *sc = resource->data;
 	struct system_client *system_client = id->data;
+	struct client_output_mapping *mapping;
+	struct weston_output *output;
 	
-	/* Do stuff */
+	wl_list_init(&sc->display_layer);
+	wl_list_foreach(output, sc->compositor->output_list, link) {
+		wl_list_foreach(mapping, system_client->surface_mapping, link) {
+			if (mapping->output == output) {
+				weston_surface_set_position(mapping->surface,
+							    output->x,
+							    output->y);
+				wl_list_insert(&sc->display_layer,
+					       &mapping->surface->layer_link);
+			}
+		}
+	}
+	weston_output_damage_all(sc->compositor);
 }
 
 static const 
@@ -55,72 +125,79 @@ struct display_manager_interface display_manager_implementation = {
         switch_to_client
 };
 
+static void
+unbind_display_manager(struct wl_resource *resource)
+{
+	free(resource);
+}
 
-static void 
+static void
+bind_display_manager(struct wl_client *client, void *data,
+		     uint32_t version, uint32_t id)
+{
+	struct dislpay_manager *dm = data;
+	struct wl_resource *resource;
 
-static const
-struct system_compositor_interface system_compositor_implementation = {
+	resource = wl_client_add_object(client, &display_manager_interface,
+					&display_manager_implementation,
+					id, dm);
 
-};
+	if (client == dm->dm_client) {
+		resource->destroy = unbind_display_manager;
+		return;
+	}
+
+	wl_resource_post_error(resource, WL_DISPLAY_ERROR_INVALID_OBJECT,
+			       "permission to bind display_manager denied");
+	wl_resource_destroy(resource);
+}
 
 WL_EXPORT int
 shell_init(struct weston_compositor *ec)
 {
-	struct system_compositor *shell;
+	struct display_manager *dm;
+	int dm_fd = -1;
+	int flags;
 
-	shell = calloc(1, sizeof *shell);
-	if (shell == NULL)
+	dm = calloc(1, sizeof *dm);
+	if (dm == NULL)
 		return -1;
 
-	shell->compositor = ec;
+	const struct weston_option system_compositor_options[] = {
+		{ WESTON_OPTION_INTEGER, "display-manager-fd", NULL, &dm_fd },
+	};
 
-	shell->destroy_listener.notify = shell_destroy;
-	wl_signal_add(&ec->destroy_signal, &shell->destroy_listener);
-	shell->lock_listener.notify = lock;
-	wl_signal_add(&ec->lock_signal, &shell->lock_listener);
-	shell->unlock_listener.notify = unlock;
-	wl_signal_add(&ec->unlock_signal, &shell->unlock_listener);
-	ec->ping_handler = ping_handler;
-	ec->shell_interface.create_shell_surface = create_shell_surface;
-	ec->shell_interface.set_toplevel = set_toplevel;
-	ec->shell_interface.set_transient = set_transient;
-	ec->shell_interface.move = surface_move;
-	ec->shell_interface.resize = surface_resize;
+	*argc = parse_options(system_compositor_options,
+			      ARRAY_LENGTH(system_compositor_options),
+			      *argc, argv);
+	if (dm_fd == -1) {
+		fprintf(stderr, "System compostior requires --display-manager-fd argument\n");
+	}
+	flags = fcntl(dm_fd, F_GETFD);
+	if (flags != -1)
+		fcntl(dm_fd, F_SETFD, flags | FD_CLOEXEC);
 
-	wl_list_init(&shell->backgrounds);
-	wl_list_init(&shell->panels);
-	wl_list_init(&shell->screensaver.surfaces);
-
-	weston_layer_init(&shell->fullscreen_layer, &ec->cursor_layer.link);
-	weston_layer_init(&shell->panel_layer, &shell->fullscreen_layer.link);
-	weston_layer_init(&shell->toplevel_layer, &shell->panel_layer.link);
-	weston_layer_init(&shell->background_layer,
-			  &shell->toplevel_layer.link);
-	wl_list_init(&shell->lock_layer.surface_list);
-
-	shell_configuration(shell);
-
-	if (wl_display_add_global(ec->wl_display, &wl_shell_interface,
-				  shell, bind_shell) == NULL)
+	dm->dm_client = wl_client_create(ec->wl_display, dm_fd);
+	if (dm->dm_client == NULL) {
+		fprintf(stderr, "Failed to connect to display-manager fd\n");
 		return -1;
+	}	
+
+	dm->compositor = ec;
+
+	weston_layer_init(&dm->authentication_overlay, &ec->cursor_layer.link);
+	weston_layer_init(&dm->display_layer,
+			  &dm->authentication_overlay.link);
 
 	if (wl_display_add_global(ec->wl_display,
-				  &desktop_shell_interface,
-				  shell, bind_desktop_shell) == NULL)
+				  &wl_system_compositor_interface,
+				  dm, bind_system_compositor) == NULL)
 		return -1;
-
-	if (wl_display_add_global(ec->wl_display, &screensaver_interface,
-				  shell, bind_screensaver) == NULL)
+	
+	if (wl_display_add_global(ec->wl_display,
+				  &wl_display_manager_interface,
+				  dm, bind_display_manager) == NULL)
 		return -1;
-
-	shell->child.deathstamp = weston_compositor_get_time();
-	if (launch_desktop_shell_process(shell) != 0)
-		return -1;
-
-	shell_add_bindings(ec, shell);
 
 	return 0;
 }
-
-
-

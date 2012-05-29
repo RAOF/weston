@@ -182,11 +182,15 @@ system_compositor_la_LIBADD = $(COMPOSITOR_LIBS)\
 	../shared/libshared.la
 system_compositor_la_CFLAGS = $(GCC_CFLAGS) $(COMPOSITOR_CFLAGS)
 system_compositor_la_SOURCES =			\
+	display-manager-protocol.c		\
+	display-manager-server-protocol.h	\
 	system-compositor-protocol.c		\
 	system-compositor-server-protocol.h
 endif
 
 BUILT_SOURCES =					\
+	display-manager-server-protocol.h	\
+	display-manager-protocol.c		\
 	screenshooter-server-protocol.h		\
 	screenshooter-protocol.c		\
 	text-cursor-position-server-protocol.h	\
