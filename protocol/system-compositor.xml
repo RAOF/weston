@@ -1,25 +1,27 @@
-<protocol name="system">
+<protocol name="system_compositor">
   <interface name="wl_system_compositor" version="1">
     <description summary="Manage multiple users' displays">
 
-    </description>
-    
-    <request name="display_surface"> 
+    </description>    
+    <request name="present_surface"> 
       <description summary="present surface for display">
-        This requests the system compositor to display @surface. Each client
-        of the system compositor can have at most one surface displayed at any
-        time.
+        This requests the system compositor to display surface on output.
+        Each client of the system compositor can have at most one surface
+        per output at any one time.
+        
+        Subsequent requests with the same output replace the surface.
       </description>
       <arg name="surface" type="object" interface="wl_surface"/>
+      <arg name="output" type="object" interface="wl_output"/>
     </request>
-
-    <event name="becoming_visible">
-    </event>
     
-    <event name="lost_visibility">
-      <description summary="">
+    <request name="ready">
+      <description summary="notify that client is ready">
+        This informs the system compositor that the client is ready to be
+        displayed. A client should send this request after it has created
+        its surfaces and performed its initial rendering.
       </description>
-    </event>
+    </request>
   </interface>
 </protocol>
     

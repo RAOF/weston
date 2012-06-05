@@ -182,6 +182,7 @@ system_compositor_la_LIBADD = $(COMPOSITOR_LIBS)\
 	../shared/libshared.la
 system_compositor_la_CFLAGS = $(GCC_CFLAGS) $(COMPOSITOR_CFLAGS)
 system_compositor_la_SOURCES =			\
+	system-compositor.c			\
 	display-manager-protocol.c		\
 	display-manager-server-protocol.h	\
 	system-compositor-protocol.c		\

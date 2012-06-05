@@ -22,7 +22,8 @@ if BUILD_SIMPLE_CLIENTS
 simple_clients_programs =			\
 	simple-egl				\
 	simple-shm				\
-	simple-touch
+	simple-touch				\
+	simple-display-manager
 
 simple_egl_SOURCES = simple-egl.c
 simple_egl_CPPFLAGS = $(SIMPLE_CLIENT_CFLAGS)
@@ -39,6 +40,16 @@ simple_touch_SOURCES = simple-touch.c		\
 	../shared/os-compatibility.h
 simple_touch_CPPFLAGS = $(SIMPLE_CLIENT_CFLAGS)
 simple_touch_LDADD = $(SIMPLE_CLIENT_LIBS)
+
+simple_display_manager_SOURCES = \
+	simple-display-manager.c		\
+	display-manager-client-protocol.h	\
+	display-manager-protocol.c		\
+	system-compositor-client-protocol.h	\
+	system-compositor-protocol.c
+simple_display_manager_LDADD = \
+			$(SIMPLE_CLIENT_LIBS) \
+			../shared/libshared.la
 endif
 
 if BUILD_CLIENTS
@@ -127,6 +138,10 @@ weston_tablet_shell_SOURCES =			\
 weston_tablet_shell_LDADD = $(toolkit_libs)
 
 BUILT_SOURCES =					\
+	system-compositor-client-protocol.h	\
+	system-compositor-protocol.c		\
+	display-manager-client-protocol.h	\
+	display-manager-protocol.c		\
 	screenshooter-client-protocol.h		\
 	screenshooter-protocol.c		\
 	text-cursor-position-client-protocol.h	\

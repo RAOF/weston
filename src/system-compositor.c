@@ -20,30 +20,66 @@
  * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-struct client_output_mapping {
-	struct weston_surface *surface;
+#include <stdlib.h>
+#include <stdio.h>
+#include <stdbool.h>
+#include <string.h>
+#include <unistd.h>
+#include <fcntl.h>
+
+#include <wayland-server.h>
+#include "compositor.h"
+#include "display-manager-server-protocol.h"
+#include "system-compositor-server-protocol.h"
+#include "../shared/config-parser.h"
+
+
+struct output_surface_mapping {
 	struct weston_output *output;
+	struct weston_surface *surface;
 	struct wl_list link;
 };
 
 struct system_client {
-	wl_client *client;
-	struct wl_list surface_mapping;
+	struct wl_client *client;
+	struct wl_list surface_mappings;
 	struct wl_list link;
+	bool ready_sent;
 };
 
 struct system_compositor {
 	struct weston_compositor *compositor;
-	
+	struct display_manager *dm;
+
 	struct weston_layer authentication_overlay;
 	struct weston_layer display_layer;	
+
+	struct wl_list resource_list;
 };
 
 struct display_manager {
+	struct wl_resource *resource;
 	struct system_compositor *sc;
-
 	struct wl_client *dm_client;
-	struct wl_list system_clients;
+};
+
+static void
+unbind_resource(struct wl_resource *resource)
+{
+	wl_list_remove(&resource->link);
+	free(resource);
+}
+
+static void
+terminate_client(struct wl_client *client,
+		 struct wl_resource *resource)
+{
+	/* Do something useful */
+}
+
+static const
+struct wl_system_client_interface system_client_implementation = {
+	terminate_client
 };
 
 static void add_client(struct wl_client *client,
@@ -54,73 +90,44 @@ static void add_client(struct wl_client *client,
 	struct system_client *system_client;
 	struct wl_resource *new_resource;
 	
-	system_client = calloc(1, sizeof *new_sc);
+	system_client = calloc(1, sizeof *system_client);
 	system_client->client = wl_client_create(wl_client_get_display(client),
 						 fd);
+	wl_list_init(&system_client->surface_mappings);
 	
-	new_resource = wl_client_add_object(client, &system_client_interface,
+	new_resource = wl_client_add_object(client, 
+					    &wl_system_client_interface,
 					    &system_client_implementation,
 					    id, system_client);
-
-	wl_list_insert(&dm->system_clients.prev, &system_client->link);
-}
-
-/* This might want to end up in libwayland */
-struct lookup_resource_closure {
-	struct wl_interface *target,
-	struct wl_resource *hit
-};
-
-static void lookup_resource_by_interface_proc (void *element, void *data)
-{
-	struct wl_resource *resource = (struct wl_resource *)element;
-	struct lookup_resource_closure *closure = 
-		(struct lookup_resource_closure *)data;
-	
-	if (resource->object->interface == closure->target)
-		closure->hit = resource;
-}
-
-static struct wl_resource *
-lookup_resource_by_interface(struct wl_client *client,
-			     struct wl_interface *target)
-{
-	struct lookup_resource_closure closure;
-	closure.target = target;
-	closure.hit = NULL;
-	
-	wl_map_for_each(client->objects, lookup_resource_by_interface_proc,
-			&closure);
-	
-	return closure.hit;	
+	wl_list_insert(dm->sc->resource_list.prev, &new_resource->link);
+	new_resource->destroy = unbind_resource;
 }
 
 static void switch_to_client(struct wl_client *client,
 			     struct wl_resource *resource,
 			     struct wl_resource *id)
 {
-	struct system_compositor *sc = resource->data;
+	struct display_manager *dm = resource->data;
+	struct system_compositor *sc = dm->sc;
 	struct system_client *system_client = id->data;
-	struct client_output_mapping *mapping;
-	struct weston_output *output;
+	struct output_surface_mapping *mapping;
 	
-	wl_list_init(&sc->display_layer);
-	wl_list_foreach(output, sc->compositor->output_list, link) {
-		wl_list_foreach(mapping, system_client->surface_mapping, link) {
-			if (mapping->output == output) {
-				weston_surface_set_position(mapping->surface,
-							    output->x,
-							    output->y);
-				wl_list_insert(&sc->display_layer,
-					       &mapping->surface->layer_link);
-			}
-		}
+	/* This will eventually need to do some form of transition */
+	/* Clear the display layer */
+	wl_list_init(&sc->display_layer.surface_list);
+	
+	/* Add the client to the display layer */
+	wl_list_for_each(mapping, &system_client->surface_mappings, link) {
+		fprintf(stderr, "Mapping surface %p for client %p\n", mapping->surface, system_client);
+		wl_list_insert(&sc->display_layer.surface_list,
+			       &mapping->surface->layer_link);
+		weston_surface_restack(mapping->surface, &sc->display_layer.surface_list);
+		weston_surface_activate(mapping->surface, sc->compositor->seat);
 	}
-	weston_output_damage_all(sc->compositor);
 }
 
 static const 
-struct display_manager_interface display_manager_implementation = {
+struct wl_display_manager_interface display_manager_implementation = {
         add_client,
         switch_to_client
 };
@@ -128,6 +135,8 @@ struct display_manager_interface display_manager_implementation = {
 static void
 unbind_display_manager(struct wl_resource *resource)
 {
+	struct display_manager *dm = resource->data;
+	dm->dm_client = NULL;
 	free(resource);
 }
 
@@ -135,14 +144,15 @@ static void
 bind_display_manager(struct wl_client *client, void *data,
 		     uint32_t version, uint32_t id)
 {
-	struct dislpay_manager *dm = data;
+	struct display_manager *dm = data;
 	struct wl_resource *resource;
 
-	resource = wl_client_add_object(client, &display_manager_interface,
+	resource = wl_client_add_object(client, &wl_display_manager_interface,
 					&display_manager_implementation,
 					id, dm);
 
 	if (client == dm->dm_client) {
+		dm->resource = resource;
 		resource->destroy = unbind_display_manager;
 		return;
 	}
@@ -152,26 +162,132 @@ bind_display_manager(struct wl_client *client, void *data,
 	wl_resource_destroy(resource);
 }
 
+static struct wl_resource *
+find_system_client_for_client (struct system_compositor *sc,
+			       struct wl_client *client)
+{
+	struct wl_resource *resource;
+	wl_list_for_each(resource, &sc->resource_list, link) {
+		struct system_client *system_client = resource->data;
+		if (system_client->client == client) {
+			return resource;
+		}
+	}
+	return NULL;
+}
+
+static void
+present_surface(struct wl_client *client,
+		struct wl_resource *resource,
+		struct wl_resource *surface_resource,
+		struct wl_resource *output_resource)
+{
+	struct system_compositor *sc = resource->data;
+	struct weston_surface *surface = surface_resource->data;
+	struct weston_output *output = output_resource->data;
+	struct output_surface_mapping *mapping = NULL, *temp_mapping;
+	struct wl_resource *client_resource;
+	struct system_client *system_client;
+
+	client_resource = find_system_client_for_client(sc, client);
+	if (client_resource == NULL) {
+		/* This *should* be impossible */
+		wl_resource_post_error(resource, WL_DISPLAY_ERROR_INVALID_OBJECT,
+				       "invalid client tried to present surface");
+		return;
+	}
+	
+	system_client = client_resource->data;
+
+	/* Find the mapping for this output */
+	wl_list_for_each(temp_mapping, &system_client->surface_mappings, link) {
+		if (temp_mapping->output == output) {
+			mapping = temp_mapping;
+			break;
+		}
+	}
+	if (mapping == NULL) {
+		/* If it doesn't exist yet, create it */
+		mapping = malloc(sizeof *mapping);
+		if (mapping == NULL) {
+			wl_resource_post_no_memory(resource);
+			return;
+		}
+		wl_list_insert(&system_client->surface_mappings, &mapping->link);
+	}
+	mapping->surface = surface;
+	mapping->output = output;
+	
+	weston_surface_configure(surface, output->x, output->y, 
+				 output->current->width, output->current->height);
+}
+
+static void
+ready(struct wl_client *client, struct wl_resource *resource)
+{
+	struct system_compositor *sc = resource->data;
+	struct wl_resource *client_resource;
+	struct system_client *system_client;
+	
+	client_resource = find_system_client_for_client(sc, client);
+	if (client_resource == NULL) {
+		/* This *should* be impossible */
+		wl_resource_post_error(resource, WL_DISPLAY_ERROR_INVALID_OBJECT,
+				       "non-system client tried to signal readiness");
+		return;
+	}
+
+	system_client = client_resource->data;
+	if (system_client->ready_sent) {
+		/* Should send some sort of error */
+		return;
+	}
+	wl_system_client_send_ready(client_resource);
+}
+
+static const
+struct wl_system_compositor_interface system_compositor_implementation = {
+	present_surface,
+	ready
+};
+
+static void
+bind_system_compositor(struct wl_client *client, void *data,
+		       uint32_t version, uint32_t id)
+{
+	struct system_compositor *sc = data;
+
+	wl_client_add_object(client, &wl_system_compositor_interface,
+			     &system_compositor_implementation,
+			     id, sc);
+}
+
+int shell_init(struct weston_compositor *ec, int *argc, char *argv[]);
+
 WL_EXPORT int
-shell_init(struct weston_compositor *ec)
+shell_init(struct weston_compositor *ec, int *argc, char *argv[])
 {
 	struct display_manager *dm;
+	struct system_compositor *sc;
 	int dm_fd = -1;
 	int flags;
 
 	dm = calloc(1, sizeof *dm);
-	if (dm == NULL)
+	sc = calloc(1, sizeof *sc);
+	if (dm == NULL || sc == NULL)
 		return -1;
 
 	const struct weston_option system_compositor_options[] = {
-		{ WESTON_OPTION_INTEGER, "display-manager-fd", NULL, &dm_fd },
+		{ WESTON_OPTION_INTEGER, "display-manager-fd", 0, &dm_fd },
 	};
 
 	*argc = parse_options(system_compositor_options,
 			      ARRAY_LENGTH(system_compositor_options),
 			      *argc, argv);
 	if (dm_fd == -1) {
-		fprintf(stderr, "System compostior requires --display-manager-fd argument\n");
+		fprintf(stderr,
+			"System compostior requires --display-manager-fd argument\n");
+		return -1;
 	}
 	flags = fcntl(dm_fd, F_GETFD);
 	if (flags != -1)
@@ -181,17 +297,22 @@ shell_init(struct weston_compositor *ec)
 	if (dm->dm_client == NULL) {
 		fprintf(stderr, "Failed to connect to display-manager fd\n");
 		return -1;
-	}	
+	}
 
-	dm->compositor = ec;
+	dm->sc = sc;
 
-	weston_layer_init(&dm->authentication_overlay, &ec->cursor_layer.link);
-	weston_layer_init(&dm->display_layer,
-			  &dm->authentication_overlay.link);
+	sc->dm = dm;
+	sc->compositor = ec;
+	wl_list_init(&sc->resource_list);
+
+	wl_list_init(&sc->authentication_overlay.link);
+	weston_layer_init(&sc->authentication_overlay, &ec->cursor_layer.link);
+	weston_layer_init(&sc->display_layer,
+			  &sc->authentication_overlay.link);
 
 	if (wl_display_add_global(ec->wl_display,
 				  &wl_system_compositor_interface,
-				  dm, bind_system_compositor) == NULL)
+				  sc, bind_system_compositor) == NULL)
 		return -1;
 	
 	if (wl_display_add_global(ec->wl_display,

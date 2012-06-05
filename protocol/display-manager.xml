@@ -1,4 +1,4 @@
-<protocol name="system">
+<protocol name="dislpay_manager">
   <interface name="wl_system_client" version="1">
     <request name="terminate" type="destructor">
       <description summary="disconnect a client">
@@ -6,6 +6,16 @@
         destroy its associated resources.
       </description>
     </request>
+    <event name="ready">
+      <description summary="client ready">
+        Sent when the system compositor has determined a client is ready to
+        be switched to. Generally this means that the client has attached
+        the first buffer to its surface.
+      </description>
+    </event>
+    <event name="client_disconnected">
+      <!-- Need disconnect reason? -->
+    </event>
   </interface>
 
   <interface name="wl_display_manager" version="1">
@@ -40,22 +50,6 @@
       <arg name="id" type="object" interface="wl_system_client"/>
       <!-- Possibly need to specify transition options? -->
     </request>
-
-    <event name="client_disconnected">
-      <arg name="id" type="object" interface="wl_system_client"/>
-      <!-- Need disconnect reason? -->
-    </event>
-    
-    <event name="client_ready">
-      <description summary="client ready">
-        Sent when the system compositor has determined a client is ready to
-        be switched to. Generally this means that the client has attached
-        the first buffer to its surface.
-      </description>
-      <arg name="id" type="object" interface="wl_system_client"/>
-      <!-- Send set of ready clients on display manager connect?
-           Need user & DM cookie? -->
-    </event>
   </interface>
 </protocol>
     

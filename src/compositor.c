@@ -3292,6 +3292,7 @@ int main(int argc, char *argv[])
 		{ WESTON_OPTION_BOOLEAN, "xserver", 0, &xserver },
 		{ WESTON_OPTION_STRING, "module", 0, &module },
 		{ WESTON_OPTION_STRING, "log", 0, &log },
+		{ WESTON_OPTION_STRING, "shell", 0, &shell }
 	};
 
 	argc = parse_options(core_options,
@@ -3387,7 +3388,7 @@ int main(int argc, char *argv[])
 	if (argv[1])
 		exit(EXIT_FAILURE);
 	
-	if (wl_display_add_socket(display, socket_name)) {
+	if (strcmp(shell, "system-compositor.so") != 0 && wl_display_add_socket(display, socket_name)) {
 		weston_log("failed to add socket: %m\n");
 		exit(EXIT_FAILURE);
 	}
