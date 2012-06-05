@@ -221,6 +221,7 @@ if test "x$GCC" = "xyes"; then
 	GCC_CFLAGS="-Wall -Wextra -Wstrict-prototypes -Wmissing-prototypes \
 		-Wno-unused-parameter -Wno-missing-field-initializers \
 		-g -fvisibility=hidden"
+fi
 
 AC_ARG_ENABLE(wcap-tools, [  --disable-wcap-tools],, enable_wcap_tools=yes)
 AM_CONDITIONAL(BUILD_WCAP_TOOLS, test x$enable_wcap_tools = xyes)

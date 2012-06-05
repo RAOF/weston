@@ -3355,11 +3355,6 @@ int main(int argc, char *argv[])
 
 	free(config_file);
 
-	if (weston_compositor_xkb_init(ec, &xkb_names) == -1) {
-		fprintf(stderr, "failed to initialise keyboard support\n");
-		exit(EXIT_FAILURE);
-	}
-
 	ec->option_idle_time = idle_time;
 	ec->idle_time = idle_time;
 
