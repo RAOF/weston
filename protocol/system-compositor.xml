@@ -9,7 +9,8 @@
         Each client of the system compositor can have at most one surface
         per output at any one time.
         
-        Subsequent requests with the same output replace the surface.
+        Subsequent requests with the same output replace the surface bound
+        to that output.
       </description>
       <arg name="surface" type="object" interface="wl_surface"/>
       <arg name="output" type="object" interface="wl_output"/>
@@ -17,9 +18,9 @@
     
     <request name="ready">
       <description summary="notify that client is ready">
-        This informs the system compositor that the client is ready to be
-        displayed. A client should send this request after it has created
-        its surfaces and performed its initial rendering.
+        This notifies the system compositor that the client is ready to be
+        switched to. The client should have made a call to present_surface
+        prior to signaling readiness.
       </description>
     </request>
   </interface>
