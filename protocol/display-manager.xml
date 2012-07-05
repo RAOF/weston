@@ -1,4 +1,4 @@
-<protocol name="dislpay_manager">
+<protocol name="display_manager">
   <interface name="wl_system_client" version="1">
     <request name="terminate" type="destructor">
       <description summary="disconnect a client">
