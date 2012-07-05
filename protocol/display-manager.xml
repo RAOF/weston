@@ -50,7 +50,37 @@
       <arg name="id" type="object" interface="wl_system_client"/>
       <!-- Possibly need to specify transition options? -->
     </request>
+
+    <enum name="error">
+      <entry name="keybinding_exists" value="0"/>
+      <entry name="invalid_keybinding" value="1"/>
+    </enum>
+
+    <request name="bind_key">
+      <description summary="receive notification when a key chord is pressed">
+        This request adds a key combination to the set of keybindings reserved
+        by the display manager. When one of these key combinations is pressed,
+        a keybinding event with cookie is sent to the display manager.
+
+        These keypresses are not sent to any other client.
+      </description>
+      <arg name="key" type="uint"/>
+      <arg name="modifier" type="uint"/>
+      <arg name="cookie" type="uint" />
+    </request>
+
+    <request name="unbind_key">
+      <description summary="remove a key combination from the list of keybindings">
+        This request removes a key combination to the set of keybindings.
+      </description>
+      <arg name="key" type="uint"/>
+      <arg name="modifier" type="uint"/>
+      <arg name="cookie" type="uint" />
+    </request>
+
+    <event name="keybinding_notify">
+      <arg name="cookie" type="uint"/>
+    </event>
   </interface>
 </protocol>
-    
-         
+

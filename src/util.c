@@ -260,16 +260,6 @@ weston_slide_run(struct weston_surface *surface, GLfloat start, GLfloat stop,
 	return animation;
 }
 
-struct weston_binding {
-	uint32_t key;
-	uint32_t button;
-	uint32_t axis;
-	uint32_t modifier;
-	void *handler;
-	void *data;
-	struct wl_list link;
-};
-
 static struct weston_binding *
 weston_compositor_add_binding(struct weston_compositor *compositor,
 			      uint32_t key, uint32_t button, uint32_t axis,

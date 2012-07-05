@@ -30,6 +30,9 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 
+/* For keycodes for keybinding */
+#include <linux/input.h>
+
 #include <wayland-client.h>
 #include "display-manager-client-protocol.h"
 #include "system-compositor-client-protocol.h"
@@ -37,7 +40,9 @@
 
 struct display_manager {
 	struct wl_display_manager *wl_dm;
-	struct wl_list clients;
+	char **session_one_args;
+	char **session_two_args;
+	struct wl_system_client *clients[2];
 };
 
 static void
@@ -58,14 +63,12 @@ static struct wl_system_client_listener client_listener = {
 	handle_client_disconnected
 };
 
-
 static void
-add_system_client(struct display_manager *manager)
+add_system_client(struct display_manager *manager, char **arguments)
 {
 	int socket_fds[2], child_fd;
 	pid_t child_pid;
 	char *executable = "/home/chris/.local/bin/X";
-	char *arguments[] = { executable, ":1", "-wayland", "-retro", NULL};
 	char *env[] = { NULL, "LD_LIBRARY_PATH=/home/chris/.local/lib", 
 		  	"WAYLAND_DEBUG=1", NULL };
 	struct wl_system_client *client;
@@ -98,7 +101,28 @@ add_system_client(struct display_manager *manager)
 	client = wl_display_manager_add_client(manager->wl_dm, socket_fds[1]);
 	
 	wl_system_client_add_listener(client, &client_listener, manager);
+	
+	if (manager->clients[0] == NULL)
+		manager->clients[0] = client;
+	else
+		manager->clients[1] = client;
 }
+
+static void
+handle_keybinding (void *data, struct wl_display_manager *wl_display_manager, uint32_t cookie)
+{
+	struct display_manager *dm = data;
+
+	if (cookie == 0) {
+		wl_display_manager_switch_to_client(dm->wl_dm, dm->clients[0]);
+	} else {
+		wl_display_manager_switch_to_client(dm->wl_dm, dm->clients[1]);
+	}
+}
+
+static struct wl_display_manager_listener dm_listener = {
+	handle_keybinding
+};
 
 static void
 global_handler(struct wl_display *display, uint32_t id,
@@ -110,7 +134,13 @@ global_handler(struct wl_display *display, uint32_t id,
 	if (!strcmp(interface, "wl_display_manager")) {
 		manager->wl_dm =
 			wl_display_bind(display, id, &wl_display_manager_interface);
-		add_system_client(manager);
+		add_system_client(manager, manager->session_one_args); 
+		add_system_client(manager, manager->session_two_args);
+		/* Hardcoded because I am evil */
+		wl_display_manager_bind_key(manager->wl_dm, KEY_A, 1 | 2, 0);
+		wl_display_manager_bind_key(manager->wl_dm, KEY_B, 1 | 2, 1);
+		/* No one needs ctrl-alt-a or ctrl-alt-b, right? */
+		wl_display_manager_add_listener(manager->wl_dm, &dm_listener, manager);
 	}
 }
 
@@ -120,6 +150,10 @@ int main(int argc, char *argv[])
 	int socket_fds[2], child_fd;
 	pid_t child_pid;
 	char *compositor_cmd = NULL, *compositor_opts = NULL;
+	char *session_one_args[] = 
+		{ "/home/chris/.local/bin/X", ":5", "-wayland", "-retro", NULL};
+	char *session_two_args[] = 
+		{ "/home/chris/.local/bin/X", ":6", "-wayland", NULL};
 	char *session_one_cmd, *session_one_opts;
 	char *session_two_cmd, *session_two_opts;
 	char *compositor_fd;
@@ -137,6 +171,9 @@ int main(int argc, char *argv[])
 	/* Temporary */
 	compositor_cmd = strdup("/home/chris/.local/bin/weston");
 	compositor_opts = strdup("--system-compositor");
+
+	manager.session_one_args = session_one_args;
+	manager.session_two_args = session_two_args;
 
 	if(socketpair(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC,
 		      0, socket_fds) == -1) {

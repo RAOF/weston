@@ -554,7 +554,16 @@ void
 weston_compositor_update_drag_surfaces(struct weston_compositor *compositor);
 
 
-struct weston_binding;
+struct weston_binding {
+	uint32_t key;
+	uint32_t button;
+	uint32_t axis;
+	uint32_t modifier;
+	void *handler;
+	void *data;
+	struct wl_list link;
+};
+
 typedef void (*weston_key_binding_handler_t)(struct wl_seat *seat,
 					     uint32_t time, uint32_t key,
 					     void *data);

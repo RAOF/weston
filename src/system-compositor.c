@@ -126,10 +126,88 @@ static void switch_to_client(struct wl_client *client,
 	}
 }
 
+struct key_handler_data {
+	struct wl_resource *resource;
+	uint32_t cookie;
+};
+
+static void
+key_binding_handler (struct wl_seat *seat, uint32_t time,
+		     uint32_t key, void *data)
+{
+	struct key_handler_data *khd = data;
+	wl_display_manager_send_keybinding_notify(khd->resource, khd->cookie);
+}
+
+static int
+is_same_keybinding(struct weston_binding *binding,
+		   uint32_t key, uint32_t modifier, uint32_t cookie)
+{
+	struct key_handler_data *data = binding->data;
+	return ((binding->key == key) &&
+		(binding->modifier == modifier) &&
+		(data->cookie == cookie));
+}
+
+static void
+bind_key (struct wl_client *client,
+	  struct wl_resource *resource,
+	  uint32_t key, uint32_t modifier, uint32_t cookie)
+{
+	struct display_manager *dm = resource->data;
+	struct weston_compositor *compositor = dm->sc->compositor;
+	struct weston_binding *binding;
+	struct key_handler_data *khd;
+
+	wl_list_for_each(binding, &compositor->key_binding_list, link) {
+		if (is_same_keybinding(binding, key, modifier, cookie)) {
+			wl_resource_post_error(resource, WL_DISPLAY_MANAGER_ERROR_KEYBINDING_EXISTS,
+					       "attempt to register duplicate keybinding");
+			return;
+		}
+	}		
+
+	khd = malloc(sizeof *khd);
+	if (!khd) {
+		wl_resource_post_no_memory(resource);
+		return;
+	}
+
+	khd->resource = dm->resource;
+	khd->cookie = cookie;
+	if (!weston_compositor_add_key_binding(compositor,
+					       key, modifier,
+					       key_binding_handler, khd))
+		wl_resource_post_no_memory(resource);
+}
+
+static void
+unbind_key (struct wl_client *client,
+	    struct wl_resource *resource,
+	    uint32_t key, uint32_t modifier, uint32_t cookie)
+{
+	struct display_manager *dm = resource->data;
+	struct weston_compositor *compositor = dm->sc->compositor;
+	struct weston_binding *binding, *tmp;
+
+	wl_list_for_each_safe(binding, tmp, &compositor->key_binding_list, link) {
+		if (is_same_keybinding(binding, key, modifier, cookie)) {
+			free(binding->data);
+			weston_binding_destroy(binding);
+			return;
+		}
+	}
+
+	wl_resource_post_error(resource, WL_DISPLAY_MANAGER_ERROR_INVALID_KEYBINDING,
+			       "request to remove key binding that is not set");
+}
+
 static const 
 struct wl_display_manager_interface display_manager_implementation = {
         add_client,
-        switch_to_client
+        switch_to_client,
+	bind_key,
+	unbind_key
 };
 
 static void
@@ -319,6 +397,9 @@ shell_init(struct weston_compositor *ec, int *argc, char *argv[])
 				  &wl_display_manager_interface,
 				  dm, bind_display_manager) == NULL)
 		return -1;
+
+	/* We want to claim all the keybindings */
+	weston_binding_list_destroy_all(&ec->key_binding_list);
 
 	return 0;
 }
