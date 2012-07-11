@@ -401,5 +401,8 @@ shell_init(struct weston_compositor *ec, int *argc, char *argv[])
 	/* We want to claim all the keybindings */
 	weston_binding_list_destroy_all(&ec->key_binding_list);
 
+	/* Turning off the display is a bit user hostile :) */
+	weston_compositor_idle_inihibit(ec);
+
 	return 0;
 }
