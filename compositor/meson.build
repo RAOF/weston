@@ -134,6 +134,28 @@ if get_option('systemd')
 	env_modmap += 'systemd-notify.so=@0@;'.format(plugin_systemd_notify.full_path())
 endif
 
+if get_option('wlcs-tests')
+	dep_wlcs = dependency('wlcs')
+	srcs_wlcs = [
+		'wlcs-integration.c'
+	]
+	srcs_wlcs += srcs_weston
+	deps_wlcs = [
+		deps_weston,
+		dep_wlcs
+	]
+	wlcs_integration = shared_library(
+		'wlcs-integration',
+		srcs_wlcs,
+		include_directories: include_directories('..', '../shared'),
+		dependencies: deps_wlcs,
+		name_prefix: '',
+		install: false
+	)
+	wlcs_binary = find_program(dep_wlcs.get_pkgconfig_variable('test_runner'))
+	test('WLCS', wlcs_binary, args : [ wlcs_integration.full_path() ])
+endif
+
 weston_ini_config = configuration_data()
 weston_ini_config.set('bindir', dir_bin)
 weston_ini_config.set('libexecdir', dir_libexec)

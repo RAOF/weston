@@ -204,3 +204,10 @@ option(
 	value: true,
 	description: 'Tests: output JUnit XML results'
 )
+
+option(
+	'wlcs-tests',
+	type: 'boolean',
+	value: false,
+	description: 'Tests: run the WLCS test suite'
+)
