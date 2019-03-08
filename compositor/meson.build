@@ -1,6 +1,5 @@
 srcs_weston = [
 	git_version_h,
-	'main.c',
 	'text-backend.c',
 	'weston-screenshooter.c',
 	text_input_unstable_v1_server_protocol_h,
@@ -23,9 +22,11 @@ if get_option('xwayland')
 	config_h.set_quoted('XSERVER_PATH', get_option('xwayland-path'))
 endif
 
+srcs_weston_real = srcs_weston + ['main.c']
+
 exe_weston = executable(
 	'weston',
-	srcs_weston,
+	srcs_weston_real,
 	include_directories: include_directories('..', '../shared'),
 	link_args: [ '-export-dynamic' ],
 	dependencies: deps_weston,
@@ -152,8 +153,6 @@ if get_option('wlcs-tests')
 		name_prefix: '',
 		install: false
 	)
-	wlcs_binary = find_program(dep_wlcs.get_pkgconfig_variable('test_runner'))
-	test('WLCS', wlcs_binary, args : [ wlcs_integration.full_path() ])
 endif
 
 weston_ini_config = configuration_data()

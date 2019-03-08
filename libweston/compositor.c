@@ -6964,14 +6964,14 @@ weston_load_module(const char *name, const char *entrypoint)
 	 * our buffer is an error here. */
 	if (len >= sizeof path)
 		return NULL;
-
+/*
 	module = dlopen(path, RTLD_NOW | RTLD_NOLOAD);
 	if (module) {
 		weston_log("Module '%s' already loaded\n", path);
 		dlclose(module);
 		return NULL;
 	}
-
+*/
 	weston_log("Loading module '%s'\n", path);
 	module = dlopen(path, RTLD_NOW);
 	if (!module) {

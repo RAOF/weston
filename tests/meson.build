@@ -221,6 +221,9 @@ env_test_weston = [
 	'WESTON_MODULE_MAP=@0@'.format(env_modmap),
 ]
 
+wlcs_binary = find_program('/home/chris/Canonical/Mir/wlcs/build-ninja/wlcs')
+test('WLCS', wlcs_binary, args : [ wlcs_integration.full_path() ], env : env_test_weston)
+
 # FIXME: the multiple loops is lame. rethink this.
 foreach t : tests_standalone
 	if t[0] != 'zuc'
